@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mobile Fruit Catcher</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #87CEEB;
+            touch-action: none;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        #gameCanvas {
+            border: 3px solid #2c3e50;
+            background-color: #ffffff;
+            margin-top: 20px;
+            touch-action: none;
+        }
+
+        #score {
+            font-size: 24px;
+            color: #2c3e50;
+            margin: 10px;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 40px;
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #3498db;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: white;
+            user-select: none;
+            touch-action: none;
+        }
+
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 95vw;
+                height: 70vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <canvas id="gameCanvas"></canvas>
+    <div class="controls">
+        <div class="control-btn" id="leftBtn">←</div>
+        <div class="control-btn" id="rightBtn">→</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size based on screen
+        const setCanvasSize = () => {
+            canvas.width = Math.min(window.innerWidth * 0.9, 400);
+            canvas.height = Math.min(window.innerHeight * 0.6, 600);
+        };
+        setCanvasSize();
+        window.addEventListener('resize', setCanvasSize);
+
+        const scoreElement = document.getElementById('score');
+        
+        // Game objects
+        const player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 50,
+            width: 50,
+            height: 30,
+            speed: 7
+        };
+
+        let fruits = [];
+        let score = 0;
+        let gameLoop;
+        let spawnRate = 100;
+        let isGameOver = false;
+        let moveDirection = 0; // -1 = left, 1 = right
+
+        // Touch controls
+        const leftBtn = document.getElementById('leftBtn');
+        const rightBtn = document.getElementById('rightBtn');
+
+        const startMovingLeft = () => moveDirection = -1;
+        const startMovingRight = () => moveDirection = 1;
+        const stopMoving = () => moveDirection = 0;
+
+        // Add touch events
+        leftBtn.addEventListener('touchstart', startMovingLeft);
+        leftBtn.addEventListener('touchend', stopMoving);
+        leftBtn.addEventListener('touchcancel', stopMoving);
+
+        rightBtn.addEventListener('touchstart', startMovingRight);
+        rightBtn.addEventListener('touchend', stopMoving);
+        rightBtn.addEventListener('touchcancel', stopMoving);
+
+        // Mouse events for desktop testing
+        leftBtn.addEventListener('mousedown', startMovingLeft);
+        rightBtn.addEventListener('mousedown', startMovingRight);
+        document.addEventListener('mouseup', stopMoving);
+
+        function updatePlayer() {
+            if (isGameOver) return;
+            
+            player.x += moveDirection * player.speed;
+            
+            // Keep player in bounds
+            player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+        }
+
+        function createFruit() {
+            fruits.push({
+                x: Math.random() * (canvas.width - 20),
+                y: 0,
+                width: 20,
+                height: 20,
+                speed: 3 + Math.random() * 2
+            });
+        }
+
+        function checkCollision(fruit) {
+            return player.x < fruit.x + fruit.width &&
+                   player.x + player.width > fruit.x &&
+                   player.y < fruit.y + fruit.height &&
+                   player.y + player.height > fruit.y;
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function drawFruits() {
+            ctx.fillStyle = '#e74c3c';
+            fruits.forEach(fruit => {
+                ctx.beginPath();
+                ctx.arc(fruit.x + fruit.width/2, fruit.y + fruit.height/2, fruit.width/2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function updateGame() {
+            if (isGameOver) return;
+            
+            updatePlayer();
+
+            if (Math.random() * spawnRate < 1) {
+                createFruit();
+            }
+
+            fruits.forEach(fruit => {
+                fruit.y += fruit.speed;
+
+                if (checkCollision(fruit)) {
+                    score++;
+                    scoreElement.textContent = `Score: ${score}`;
+                    fruits = fruits.filter(f => f !== fruit);
+                }
+
+                if (fruit.y > canvas.height) {
+                    gameOver();
+                }
+            });
+
+            fruits = fruits.filter(fruit => fruit.y < canvas.height);
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+            drawFruits();
+        }
+
+        function gameOver() {
+            isGameOver = true;
+            cancelAnimationFrame(gameLoop);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Game Over!', canvas.width/2, canvas.height/2);
+            ctx.font = '24px Arial';
+            ctx.fillText(`Final Score: ${score}`, canvas.width/2, canvas.height/2 + 40);
+        }
+
+        function runGame() {
+    if (!isGameOver) {
+        updateGame();
+        drawGame();
+        gameLoop = requestAnimationFrame(runGame);
+    } else {
+        alert("Game Over");
+        return; // Use return instead of break
+    }
+}
+
+// Start the game
+runGame();
+    
+
+        // Prevent default touch behavior
+        document.addEventListener('touchstart', (e) => e.preventDefault());
+        document.addEventListener('touchmove', (e) => e.preventDefault());
+    </script>
+</body>
+</html>
